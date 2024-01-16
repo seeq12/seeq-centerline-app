@@ -161,19 +161,35 @@ def find_current_values(df):
                     quiet = True
                    )
     
-    # Renaming columns
+    # Step 1: Identifying duplicates in the last parts
+    last_part_counts = {}
+    for col in data.columns:
+        if '>>' in col:
+            last_part = col.split(' >> ')[-1]
+            if last_part not in last_part_counts:
+                last_part_counts[last_part] = 0
+            last_part_counts[last_part] += 1
+
+    # Step 2: Renaming columns based on duplicates
     new_column_names = {}
     for col in data.columns:
         if '>>' in col:
             parts = col.split(' >> ')
-            # Selecting the second-to-last and last parts and joining them with '/'
-            new_name = ' / '.join(parts[-2:])
+            last_part = parts[-1]
+
+            # If the last part is a duplicate, join the second-to-last and last parts with ' / '
+            if last_part_counts[last_part] > 1:
+                new_name = ' / '.join(parts[-2:])
+            else:
+                new_name = last_part  # Use only the last part if it's not a duplicate
+
             new_column_names[col] = new_name
         else:
             new_column_names[col] = col  # Keep the original name if '>>' is not found
 
     # Renaming the DataFrame columns
     data.rename(columns=new_column_names, inplace=True)
+
     
     if data.shape[0] > 1:
         data = data.head(1)
@@ -223,13 +239,13 @@ def replace_non_json_compliant_floats(x):
 def calculate_priority(row):
     cv, ll, l, h, hh = row['Current Value'], row['LL'], row['L'], row['H'], row['HH']
     if cv > hh:
-        return 2 + ((cv - hh) / hh)
+        return (2 + ((cv - hh) / hh)) if hh != 0 else (cv - hh)
     elif cv < ll:
-        return 2 + ((ll - cv) / ll)
+        return 2 + ((ll - cv) / ll) if ll != 0 else (cv - ll)
     elif cv > h:
-        return 1 + ((cv - h) / h)
+        return 1 + ((cv - h) / h) if h != 0 else (cv - h)
     elif cv < l:
-        return 1 + ((l - cv) / l)
+        return 1 + ((l - cv) / l) if l != 0 else (cv - l)
     else:
         return 0
 
